@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>首页</title>
+    <script>
+      window.addEventListener("load", function(evt) {
+        const output = document.getElementById("output");
+        output.addEventListener(
+          "DOMNodeInserted",
+          function(e) {
+            window.scrollTo(0, output.scrollHeight);
+          },
+          false
+        );
+        const modal = document.getElementById("modal");
+
+        const showModal = function() {
+          modal.style.display = "block";
+        };
+
+        const hideModal = function() {
+          modal.style.display = "none";
+        };
+
+        disableButtons = function() {
+          const btns = document.querySelectorAll("button");
+          Array.from(btns).forEach(function(btn) {
+            btn.classList.add("button-disabled");
+          });
+        };
+
+        enableButtons = function() {
+          const btns = document.querySelectorAll("button");
+          Array.from(btns).forEach(function(btn) {
+            btn.classList.remove("button-disabled");
+          });
+        };
+
+        showButtons = function(ids) {
+          ids.forEach(id => {
+            const btn = document.getElementById(id);
+            btn.style.display = "inline-block";
+          });
+        };
+
+        hideButtons = function(ids) {
+          ids.forEach(id => {
+            const btn = document.getElementById(id);
+            btn.style.display = "none";
+          });
+        };
+
+        const print = function(message) {
+          if (message && message.startsWith("data:image/jpeg;base64,")) {
+            const img = new Image();
+            img.src = message;
+            img.onload = function() {
+              output.appendChild(img);
+            };
+          } else {
+            const d = document.createElement("div");
+            if (message && message.includes("SEND")) {
+              d.className = "send";
+            } else if (message === "微信扫码登录") {
+              showButtons(["quit", "preview", "publish"]);
+            } else if (message === "退出成功") {
+              hideButtons(["quit", "preview", "publish"]);
+            }
+            d.innerHTML = message;
+            output.appendChild(d);
+          }
+        };
+
+        const onMessage = function(data) {
+          const toJson = JSON.parse(data);
+          const message = toJson.line;
+          if (message === "DONE") {
+            enableButtons();
+            return;
+          }
+          disableButtons();
+          print(message);
+        };
+
+        const sendMessage = function(message) {
+          ws.send(JSON.stringify(message));
+        };
+
+        let ws = new WebSocket("{{.}}");
+        ws.onopen = function(evt) {
+          console.log("websocket open successfully.");
+          document.querySelector(".head").classList.add("conn-success");
+        };
+
+        ws.onclose = function(evt) {
+          console.log("websocket close successfully.");
+          document.querySelector(".head").classList.add("conn-error");
+          ws = null;
+        };
+
+        ws.onmessage = function(evt) {
+          onMessage(evt.data);
+        };
+
+        ws.onerror = function(evt) {
+          print("ERROR: " + evt.data);
+        };
+
+        document.querySelector(".mask").onclick = function(evt) {
+          hideModal();
+          return false;
+        };
+
+        document.getElementById("login").onclick = function(evt) {
+          const payload = {
+            event: "login",
+            data: {}
+          };
+          sendMessage(payload);
+          return false;
+        };
+
+        document.getElementById("quit").onclick = function(evt) {
+          const payload = {
+            event: "quit",
+            data: {}
+          };
+          sendMessage(payload);
+          return false;
+        };
+
+        document.getElementById("preview").onclick = function(evt) {
+          const payload = {
+            event: "preview",
+            data: {
+              project: document.getElementById("project").value,
+              buildEnv: document.getElementById("env").value,
+              branch: document.getElementById("branch").value || "dev"
+            }
+          };
+          sendMessage(payload);
+          return false;
+        };
+
+        document.getElementById("publish").onclick = function(evt) {
+          showModal();
+          document.getElementById("version").value =
+            localStorage.getItem("version") || "";
+          return false;
+        };
+
+        document.getElementById("confirm").onclick = function(evt) {
+          evt.preventDefault();
+          const version = document.getElementById("version").value;
+          const payload = {
+            event: "publish",
+            data: {
+              project: document.getElementById("project").value,
+              buildEnv: document.getElementById("env").value,
+              branch: document.getElementById("branch").value || "dev",
+              version,
+              desc: document.getElementById("desc").value
+            }
+          };
+          sendMessage(payload);
+          hideModal();
+          localStorage.setItem("version", version);
+          return false;
+        };
+
+        document.querySelector(".clear").onclick = function(evt) {
+          const output = document.getElementById("output");
+          output.innerHTML = "";
+        };
+      });
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/purecss@1.0.1/build/pure-min.css"
+      integrity="sha384-oAOxQR6DkCoMliIh8yFnu25d7Eq/PHS21PClpwjOTeU2jRSq11vu66rf90/cZr47"
+      crossorigin="anonymous"
+    />
+    <style>
+      .container {
+        width: 900px;
+        margin: 0 auto;
+      }
+
+      .head {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 50px;
+        background: #2f3542;
+        display: flex;
+        justify-content: center;
+        border-bottom: 2px solid rgba(0, 0, 0, 0);
+      }
+
+      .conn-success {
+        border-color: #2ed573;
+      }
+
+      .conn-error {
+        border-color: #ff4757;
+      }
+
+      .actions {
+        padding: 0 80px;
+        width: 100%;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+      }
+
+      .button-error {
+        color: white;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+        background: #ff4757;
+      }
+
+      .button-primary {
+        color: white;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+        background: #5352ed;
+      }
+
+      .button-disabled {
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .pure-form select {
+        height: auto;
+      }
+
+      label {
+        color: #dfe4ea;
+      }
+
+      .actions form {
+        flex: 1;
+        display: flex;
+        align-items: center;
+      }
+
+      .gutter,
+      .gutter-10 {
+        margin-right: 10px;
+      }
+
+      .gutter-20 {
+        margin-right: 20px;
+      }
+
+      #output {
+        box-sizing: border-box;
+        min-height: calc(100vh - 50px);
+        background: #f1f2f6;
+        margin-top: 50px;
+        padding: 10px 20px 20px;
+        color: #57606f;
+      }
+
+      #output > div {
+        line-height: 1.4;
+      }
+
+      .send {
+        color: #ffa502;
+        margin: 10px 0;
+      }
+
+      #modal {
+        display: none;
+      }
+
+      .mask {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(8, 8, 8, 0.5);
+        z-index: 9;
+      }
+
+      .modal-content {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        width: 40%;
+        background: #fff;
+        transform: translate(-50%, -50%);
+        z-index: 10;
+        border-radius: 2px;
+        padding: 20px;
+      }
+
+      .control-group {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .control-group:last-child {
+        margin-bottom: 0;
+      }
+
+      .control-group label {
+        color: #57606f;
+        width: 80px;
+        text-align: center;
+      }
+
+      .control-group input {
+        flex: 1;
+      }
+
+      .clear {
+        position: fixed;
+        left: calc(50% + 400px);
+        top: 60px;
+        cursor: pointer;
+      }
+
+      .icon {
+        width: 30px;
+        height: 30px;
+      }
+
+      .icon:hover {
+        fill: #ff4757;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="modal">
+      <div class="mask"></div>
+      <div class="modal-content">
+        <form class="pure-form pure-form-aligned">
+          <fieldset>
+            <div class="control-group">
+              <label for="version">版本:</label>
+              <input id="version" placeholder="请输入版本号" type="text" />
+              <span class="pure-form-message-inline">如: 5.6.0.x</span>
+            </div>
+            <div class="control-group">
+              <label for="desc">描述:</label>
+              <input id="desc" placeholder="请输入描述信息" ype="text" />
+            </div>
+            <div class="control-group">
+              <button class="pure-button pure-button-primary" id="confirm">
+                确定
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+    </div>
+    <div class="container">
+      <header class="head">
+        <div class="actions">
+          <div class="pure-button-group gutter-20">
+            <button class="pure-button" id="login">登录IDE</button>
+            <button style="display:none" class="pure-button" id="quit">
+              退出
+            </button>
+          </div>
+          <form class="pure-form">
+            <select class="gutter" id="project" name="project">
+              <option value="project1">
+                项目1
+              </option>
+              <option value="project2">
+                项目2
+              </option>
+            </select>
+            <select class="gutter" id="env" name="buildEnv">
+              <option value="test">测试环境</option>
+              <option value="pro">生产环境</option>
+            </select>
+            <input
+              id="branch"
+              type="text"
+              class="gutter-20"
+              placeholder="输入Git分支名称"
+            />
+            <button
+              style="display:none"
+              class="pure-button pure-button-primary"
+              id="preview"
+            >
+              预览
+            </button>
+          </form>
+          <button
+            style="display:none"
+            class="pure-button button-error"
+            id="publish"
+          >
+            发布体验版
+          </button>
+        </div>
+      </header>
+      <div class="clear" title="清空历史">
+        <svg
+          t="1570686387654"
+          class="icon"
+          viewBox="0 0 1024 1024"
+          version="1.1"
+          xmlns="http://www.w3.org/2000/svg"
+          p-id="1120"
+          width="200"
+          height="200"
+        >
+          <path d="M615.564215 406.570809" p-id="1121"></path>
+          <path
+            d="M885.03553 548.117592l-15.940041 0 0 243.09662c0 70.937632 15.940041 131.517359 15.940041 131.517359 0 17.530258-14.346753 31.882128-31.883151 31.882128L167.689698 954.6137c-17.532305 0-31.878035-14.351869-31.878035-31.882128 0 0 15.940041-58.190307 15.940041-128.32976L151.751704 548.117592l-15.940041 0c-17.537422 0-31.883151-14.349823-31.883151-31.888268L103.928512 356.824825c0-17.537422 14.34573-31.884175 31.883151-31.884175l270.995017 0L406.806681 149.58997c0-43.838438 35.867906-79.70532 79.707366-79.70532l47.822169 0c43.838438 0 79.704296 35.866882 79.704296 79.70532l0 175.349657 270.996041 0c17.537422 0 31.882128 14.346753 31.882128 31.884175l0 159.41064C916.917658 533.767769 902.572952 548.117592 885.03553 548.117592L885.03553 548.117592 885.03553 548.117592zM335.071893 922.726455 335.071893 711.508893c0-6.374174 5.583159-11.951193 11.95631-11.951193l7.966439 0c6.380314 0 11.961426 5.577019 11.961426 11.951193l0 211.217562 135.495974 0L502.452042 711.508893c0-6.374174 5.581112-11.951193 11.954263-11.951193l7.965415 0c6.385431 0 11.962449 5.577019 11.962449 11.951193l0 211.217562 127.526465 0L661.860634 711.508893c0-6.374174 5.577019-11.951193 11.951193-11.951193l7.972579 0c6.377244 0 11.955286 5.577019 11.955286 11.951193l0 211.217562 159.411663 0c0 0-15.939017-57.388035-15.939017-128.324644L837.212338 548.117592 183.633832 548.117592l0 246.284219c0 70.936609-15.945157 128.324644-15.945157 128.324644L335.071893 922.726455 335.071893 922.726455 335.071893 922.726455zM885.03553 372.761796c0-8.768711-7.17133-15.936971-15.940041-15.936971L582.156338 356.824825 582.156338 157.562549c0-31.085996-24.708751-55.793724-55.794747-55.793724l-31.878035 0c-31.084972 0-55.79884 24.707728-55.79884 55.793724l0 199.262276L151.750681 356.824825c-8.769734 0-15.940041 7.16826-15.940041 15.936971l0 127.528512c0 8.769734 7.170307 15.940041 15.940041 15.940041l31.883151 0 653.578506 0 31.882128 0c8.768711 0 15.940041-7.170307 15.940041-15.940041L885.034507 372.761796 885.03553 372.761796 885.03553 372.761796zM885.03553 372.761796"
+            p-id="1122"
+          ></path>
+          <path
+            d="M885.03553 548.117592l-15.940041 0 0 243.09662c0 70.937632 15.940041 131.517359 15.940041 131.517359 0 17.530258-14.346753 31.882128-31.883151 31.882128L167.689698 954.6137c-17.532305 0-31.878035-14.351869-31.878035-31.882128 0 0 15.940041-58.190307 15.940041-128.32976L151.751704 548.117592l-15.940041 0c-17.537422 0-31.883151-14.349823-31.883151-31.888268L103.928512 356.824825c0-17.537422 14.34573-31.884175 31.883151-31.884175l270.995017 0L406.806681 149.58997c0-43.838438 35.867906-79.70532 79.707366-79.70532l47.822169 0c43.838438 0 79.704296 35.866882 79.704296 79.70532l0 175.349657 270.996041 0c17.537422 0 31.882128 14.346753 31.882128 31.884175l0 159.41064C916.917658 533.767769 902.572952 548.117592 885.03553 548.117592L885.03553 548.117592 885.03553 548.117592zM335.071893 912.493393 335.071893 711.508893c0-6.374174 5.583159-11.951193 11.95631-11.951193l7.966439 0c6.380314 0 11.961426 5.577019 11.961426 11.951193l0 200.984501 135.495974 0L502.452042 711.508893c0-6.374174 5.581112-11.951193 11.954263-11.951193l7.965415 0c6.385431 0 11.962449 5.577019 11.962449 11.951193l0 200.984501 127.526465 0L661.860634 711.508893c0-6.374174 5.577019-11.951193 11.951193-11.951193l7.972579 0c6.377244 0 11.955286 5.577019 11.955286 11.951193l0 200.984501 149.178601 0c0 0-15.939017-47.154973-15.939017-118.091582L826.979276 548.117592 193.866894 548.117592l0 246.284219c0 70.936609-15.945157 118.091582-15.945157 118.091582L335.071893 912.493393l0 10.233062L335.071893 912.493393zM874.802468 382.994857c0-8.768711-7.17133-15.936971-15.940041-15.936971L571.923276 367.057887 571.923276 157.562549c0-31.085996-24.708751-45.560662-55.794747-45.560662l-11.411911 0c-31.084972 0-55.79884 14.474666-55.79884 45.560662l0 209.495338L161.983743 367.057887c-8.769734 0-15.940041 7.16826-15.940041 15.936971l0 107.062388c0 8.769734 7.170307 15.940041 15.940041 15.940041l31.883151 0 633.112382 0 31.882128 0c8.768711 0 15.940041-7.170307 15.940041-15.940041L874.801445 382.994857l10.233062 0L874.802468 382.994857zM885.03553 372.761796"
+            p-id="1123"
+          ></path>
+        </svg>
+      </div>
+      <div id="output"></div>
+    </div>
+  </body>
+</html>

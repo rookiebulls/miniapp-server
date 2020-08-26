@@ -1,0 +1,16 @@
+cli_path: C:\\Program Files (x86)\\Tencent\\微信web开发者工具\\cli.bat
+
+ide_path: C:\\Users\\xiekq\\AppData\\Local\\微信web开发者工具\\User Data\\Default\\.ide
+
+git:
+    bin: C:\\Program Files\\Git\bin\\git.exe
+    remote: git_remote # for example: github.com/facebook
+    username: your_git_username
+    password: your_git_password
+
+webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx # 企业微信机器人webhook
+
+# 需要@的人
+notified_users:
+    - 188xxxxxxxx
+    - 158xxxxxxxx
